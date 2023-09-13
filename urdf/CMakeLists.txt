@@ -4,8 +4,14 @@ project(urdf)
 find_package(Boost REQUIRED thread)
 find_package(urdfdom REQUIRED)
 find_package(urdfdom_headers REQUIRED)
-find_package(catkin REQUIRED COMPONENTS
+find_package(catkin QUIET COMPONENTS
   urdf_parser_plugin pluginlib rosconsole_bridge roscpp cmake_modules)
+
+if(NOT catkin_FOUND)
+  # use local copies of FindTinyXML.cmake and FindTinyXML2.cmake from
+  # 'cmake_modules' (https://github.com/ros/cmake_modules)
+  list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/cmake)
+endif()
 
 
 find_package(TinyXML REQUIRED)
@@ -25,12 +31,20 @@ configure_file(urdfdom_compatibility.h.in "${generated_compat_header}" @ONLY)
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-catkin_package(
-  LIBRARIES ${PROJECT_NAME}
-  INCLUDE_DIRS include ${CATKIN_DEVEL_PREFIX}/include
-  CATKIN_DEPENDS pluginlib rosconsole_bridge roscpp
-  DEPENDS urdfdom_headers urdfdom Boost TinyXML TinyXML2
-)
+if(catkin_FOUND)
+  catkin_package(
+    LIBRARIES ${PROJECT_NAME}
+    INCLUDE_DIRS include ${CATKIN_DEVEL_PREFIX}/include
+    CATKIN_DEPENDS pluginlib rosconsole_bridge roscpp
+    DEPENDS urdfdom_headers urdfdom Boost TinyXML TinyXML2
+  )
+  target_compile_definitions(${PROJECT_NAME} PUBLIC HAS_ROS)
+else()
+  set(CATKIN_PACKAGE_INCLUDE_DESTINATION ${CMAKE_INSTALL_PREFIX}/include/urdf)
+  set(CATKIN_PACKAGE_LIB_DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
+  set(CATKIN_GLOBAL_BIN_DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
+endif()
+
 install(FILES ${generated_compat_header} DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION})
 
 include_directories(
@@ -47,6 +61,10 @@ link_directories(${Boost_LIBRARY_DIRS} ${catkin_LIBRARY_DIRS})
 
 add_library(${PROJECT_NAME} src/model.cpp src/rosconsole_bridge.cpp)
 target_link_libraries(${PROJECT_NAME} ${TinyXML_LIBRARIES} ${TinyXML2_LIBRARIES} ${catkin_LIBRARIES} ${urdfdom_LIBRARIES})
+
+if (NOT catkin_FOUND)
+  target_compile_definitions(${PROJECT_NAME} PUBLIC TIXML_USE_STL)
+endif ()
 
 if(WIN32)
   target_compile_definitions(${PROJECT_NAME} PRIVATE "URDF_BUILDING_LIBRARY")
@@ -73,9 +91,31 @@ endif()
 
 # Install library
 install(TARGETS ${PROJECT_NAME}
+  EXPORT urdfTargets
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION})
 
 install(DIRECTORY include/${PROJECT_NAME}/
   DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION})
+
+if(NOT catkin_FOUND)
+  install(
+          EXPORT urdfTargets
+          FILE urdfTargets.cmake
+          DESTINATION "${CMAKE_INSTALL_PREFIX}/CMake"
+          NAMESPACE urdf::
+  )
+
+  include(CMakePackageConfigHelpers)
+  configure_package_config_file(
+          cmake/urdfConfig.cmake.in
+          "${CMAKE_CURRENT_BINARY_DIR}/urdfConfig.cmake"
+          INSTALL_DESTINATION "${CMAKE_INSTALL_PREFIX}/CMake"
+  )
+
+  install(
+          FILES "${CMAKE_CURRENT_BINARY_DIR}/urdfConfig.cmake"
+          DESTINATION "${CMAKE_INSTALL_PREFIX}/CMake"
+  )
+endif()

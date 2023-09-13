@@ -47,7 +47,9 @@
 
 #include <tinyxml2.h>
 
+#ifdef HAS_ROS
 #include <ros/ros.h>
+#endif
 
 #include "urdf/visibility_control.hpp"
 
@@ -67,11 +69,13 @@ public:
   URDF_EXPORT bool initXml(const tinyxml2::XMLDocument *xml);
   /// \brief Load Model given a filename
   URDF_EXPORT bool initFile(const std::string & filename);
+#ifdef HAS_ROS
   /// \brief Load Model given the name of a parameter on the parameter server
   URDF_EXPORT bool initParam(const std::string & param);
   /// \brief Load Model given the name of parameter on parameter server using provided nodehandle
   URDF_EXPORT bool initParamWithNodeHandle(const std::string & param,
     const ros::NodeHandle & nh = ros::NodeHandle());
+#endif
   /// \brief Load Model from a XML-string
   URDF_EXPORT bool initString(const std::string & xmlstring);
 };

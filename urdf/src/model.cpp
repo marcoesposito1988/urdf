@@ -44,8 +44,14 @@
 /* we include the default parser for plain URDF files;
    other parsers are loaded via plugins (if available) */
 #include <urdf_parser/urdf_parser.h>
+#ifdef HAS_ROS
 #include <urdf_parser_plugin/parser.h>
 #include <pluginlib/class_loader.hpp>
+#else
+#include <console_bridge/console.h>
+#define ROS_ERROR CONSOLE_BRIDGE_logError
+#define ROS_DEBUG CONSOLE_BRIDGE_logDebug
+#endif
 
 #include <boost/algorithm/string.hpp>
 #include <boost/scoped_ptr.hpp>
@@ -81,7 +87,7 @@ bool Model::initFile(const std::string & filename)
   }
 }
 
-
+#ifdef HAS_ROS
 bool Model::initParam(const std::string & param)
 {
   return initParamWithNodeHandle(param, ros::NodeHandle());
@@ -105,6 +111,7 @@ bool Model::initParamWithNodeHandle(const std::string & param, const ros::NodeHa
   }
   return Model::initString(xml_string);
 }
+#endif
 
 bool Model::initXml(TiXmlDocument * xml_doc)
 {
@@ -165,6 +172,8 @@ bool Model::initString(const std::string & xml_string)
 {
   urdf::ModelInterfaceSharedPtr model;
 
+#ifdef HAS_ROS
+
   // necessary for COLLADA compatibility
   if (IsColladaData(xml_string)) {
     ROS_DEBUG("Parsing robot collada xml string");
@@ -196,7 +205,9 @@ bool Model::initString(const std::string & xml_string)
     catch(pluginlib::PluginlibException& ex) {
       ROS_ERROR_STREAM("Exception while creating planning plugin loader " << ex.what() << ". Will not parse Collada file.");
     }
-  } else {
+  } else
+#endif
+  {
     ROS_DEBUG("Parsing robot urdf xml string");
     model = parseURDF(xml_string);
   }
